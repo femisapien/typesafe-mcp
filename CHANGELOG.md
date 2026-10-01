@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.9](https://github.com/itsmostafa/system-one-connector/compare/v0.4.8...v0.4.9) (2026-10-01)
+
+
+### Features
+
+* **cli:** add named model profiles ([1fa9fb7](https://github.com/itsmostafa/system-one-connector/commit/1fa9fb7f2779c195a0c95d44adfd5cb628bd4ec7))
+* **cli:** add named model profiles ([53f7489](https://github.com/itsmostafa/system-one-connector/commit/53f748971bb215a53eac4cb7f7ab1e2adceeb3b1))
+
 ## [0.4.8](https://github.com/itsmostafa/system-one-connector/compare/v0.4.7...v0.4.8) (2026-09-30)
 
 
