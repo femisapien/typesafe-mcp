@@ -125,6 +125,11 @@ func TestRoute(t *testing.T) {
 		{"t", "", "https://jev.internal//", "https://jev.internal/v1/systemone", "jev-latest", "t"},
 		// A local gateway over plain http is the point of the variable.
 		{"t", "", "http://localhost:8080", "http://localhost:8080/v1/systemone", "jev-latest", "t"},
+		// A base ending in /decisions off OpenRouter still gets /v1/systemone.
+		{"t", "", "https://api.liquid.ai/decisions", "https://api.liquid.ai/decisions/v1/systemone", "jev-latest", "t"},
+		// OpenRouter's Decisions URL is kept as given; its bare host gets the path.
+		{"t", "", "https://openrouter.ai/api/alpha/decisions", "https://openrouter.ai/api/alpha/decisions", "jev-latest", "t"},
+		{"t", "", "https://openrouter.ai/", "https://openrouter.ai/api/alpha/decisions", "jev-latest", "t"},
 		// ...and it leaves the OpenRouter route alone.
 		{"", "o", "https://jev.internal", "https://openrouter.ai/api/alpha/decisions", "~typesafe/jev-latest", "o"},
 	} {
@@ -241,6 +246,14 @@ func TestProfiles(t *testing.T) {
 	if _, err := route(); err == nil {
 		t.Fatal("unknown TYPESAFE_PROFILE: want error")
 	}
+	t.Setenv("TYPESAFE_PROFILE", "")
+
+	// OpenRouter hosts several models, one profile each, at its own path.
+	if _, err := run("add", "kev-4b", "--model", "kev-4b", "--base-url", "https://openrouter.ai/api/alpha/decisions", "--api-key", "or"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TYPESAFE_PROFILE", "kev-4b")
+	check("https://openrouter.ai/api/alpha/decisions", "kev-4b", "or")
 	t.Setenv("TYPESAFE_PROFILE", "")
 
 	out, err := run("list")
