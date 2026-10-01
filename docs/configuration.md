@@ -95,6 +95,7 @@ evaluate profile add typesafe-ai --model jev-latest --api-key your-key
 evaluate profile add liquid --model d1:free --base-url https://api.liquid.ai/decisions --api-key your-liquid-key
 evaluate profile add clm --model clm-latest --base-url http://127.0.0.1:8700 --api-key local
 evaluate profile add kev-4b --model kev-4b --base-url https://openrouter.ai/api/alpha/decisions --api-key your-openrouter-key
+evaluate profile add span-01 --model span-01 --base-url https://openrouter.ai/api/alpha/decisions --api-key your-openrouter-key
 evaluate profile use liquid
 evaluate profile list
 ```
@@ -106,6 +107,20 @@ evaluate profile list
 - Set `TYPESAFE_PROFILE=name` to pin one client to a profile regardless of which one is active. `evaluate setup mcp` copies it into client configs like any other `TYPESAFE_*` variable.
 - A selected profile replaces `TYPESAFE_API_KEY`, `TYPESAFE_BASE_URL` and `TYPESAFE_MODEL`, including values setup already wrote into your client configs. `TYPESAFE_MAX_ITEMS` still applies. With no profile active (for example, after you `remove` the active one), the environment variables apply as before.
 - Profiles cover hosts that serve `POST /v1/systemone`, plus OpenRouter's Decisions endpoint. A base URL on `openrouter.ai` is used as given rather than getting `/v1/systemone` appended, and a bare `https://openrouter.ai` gets the Decisions path. OpenRouter serves several models, so add one profile per model and always pass `--model`, since the default `jev-latest` is not an OpenRouter model name.
+
+### Span-01 (Respan)
+
+[Respan](https://www.respan.ai)'s Span-01 scores behaviors in a conversation: for each behavior you describe, it returns the probability that the behavior is present. It is served through OpenRouter, so it needs an OpenRouter key:
+
+```sh
+evaluate profile add span-01 --model span-01 --base-url https://openrouter.ai/api/alpha/decisions --api-key your-openrouter-key
+```
+
+For the free tier, use `--model respan/span-01-lite:free`. Span-01 is stricter than Jev about what it accepts, and it rejects anything else with a 400:
+
+- **Only `noul` questions.** Any `choice` or `score` question fails the whole request. Write each question as a behavior to look for, such as "The assistant apologizes to the user."
+- **State is a string or a conversation.** Use plain text, or exactly `{"input": [messages], "output": message}`, where each message has a string `content` and a `role` of `system`, `user`, `assistant` or `tool`, and `output` has the `assistant` role. A general object such as `{"ticket": ...}` is rejected.
+- **Each item is the whole state.** With `items`, each record goes upstream on its own instead of inside `{"item": ...}`, so each record must follow the state rule above. `state` cannot be combined with `items`; put any shared context into each record.
 
 ### Capping items per call
 

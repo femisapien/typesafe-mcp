@@ -58,7 +58,7 @@ const abstain = "__uncertain__"
 type evaluateIn struct {
 	State     any                 `json:"state,omitempty" jsonschema:"content to judge: plain text, or a JSON object/array with named fields — observed evidence and background as named fields, not your verdict about it; optional with items, where it is sent to every item as context"`
 	Questions map[string]question `json:"questions" jsonschema:"map of question id to question; answers come back under the same ids, which are not sent to the model"`
-	Items     map[string]any      `json:"items,omitempty" jsonschema:"optional map of item id to that item's state; asks the same questions of each item in its own request, so items are judged independently and cannot see each other; at most 500 items per call, or fewer if the server sets a lower cap. Each request's state is {\"item\": <the item>} plus {\"context\": state} when state is set, so instructions reference fields like item.subject and context.user_goals. The result is {\"results\": {id: response}, \"errors\": {id: message}, \"meta\": {model, input_tokens, output_tokens, item_count, latency_ms}}, where meta totals usage over the call and each response omits its own model and usage unless include_item_usage is set; item ids are not sent to the model. The result grows with every item and can exceed your context window, so size batches to what you can read"`
+	Items     map[string]any      `json:"items,omitempty" jsonschema:"optional map of item id to that item's state; asks the same questions of each item in its own request, so items are judged independently and cannot see each other; at most 500 items per call, or fewer if the server sets a lower cap. Each request's state is {\"item\": <the item>} plus {\"context\": state} when state is set, so instructions reference fields like item.subject and context.user_goals; Respan Span models instead take each item as the whole state and reject state alongside items. The result is {\"results\": {id: response}, \"errors\": {id: message}, \"meta\": {model, input_tokens, output_tokens, item_count, latency_ms}}, where meta totals usage over the call and each response omits its own model and usage unless include_item_usage is set; item ids are not sent to the model. The result grows with every item and can exceed your context window, so size batches to what you can read"`
 	Model     string              `json:"model,omitempty" jsonschema:"model to use; defaults to the latest Jev on whichever endpoint is configured; the active profile's model, or TYPESAFE_MODEL on the TypeSafe route, replaces that default when set"`
 
 	IncludeItemUsage bool `json:"include_item_usage,omitempty" jsonschema:"items only: keep each item response's own model and usage fields; by default they are dropped and reported once in meta"`
@@ -124,6 +124,9 @@ func registerTools(s *mcp.Server, c *Client) {
 		}
 		if in.Model == "" {
 			in.Model = c.Model
+		}
+		if in.Items != nil && in.State != nil && respan(in.Model) {
+			return nil, fmt.Errorf("state: %s takes no context with items, since each item is sent as the whole state; fold the context into each item", in.Model)
 		}
 		qs := upstream(in.Questions, args)
 		if in.Items == nil {
@@ -312,9 +315,13 @@ func evaluateItems(ctx context.Context, c *Client, in evaluateIn, qs map[string]
 		}{Results: map[string]json.RawMessage{}, Errors: map[string]string{}}
 	)
 	for id, item := range in.Items {
-		state := map[string]any{"item": item}
-		if in.State != nil {
-			state["context"] = in.State
+		var state any = item
+		if !respan(in.Model) {
+			s := map[string]any{"item": item}
+			if in.State != nil {
+				s["context"] = in.State
+			}
+			state = s
 		}
 		wg.Go(func() {
 			sem <- struct{}{}
@@ -357,6 +364,14 @@ func evaluateItems(ctx context.Context, c *Client, in evaluateIn, qs map[string]
 		}
 	}
 	return marshal(out)
+}
+
+// respan reports whether model is one of Respan's Span models, which accept
+// only a string or a bare {input, output} conversation as state, so items go
+// to them unwrapped. Only the name tells: OpenRouter takes a bare "span-01" as
+// well as "respan/span-01-lite:free", so the check is on the last path segment.
+func respan(model string) bool {
+	return strings.HasPrefix(model[strings.LastIndex(model, "/")+1:], "span-")
 }
 
 // validate rejects the criteria shapes the API is known to refuse, so the caller

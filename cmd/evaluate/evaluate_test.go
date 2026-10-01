@@ -953,6 +953,39 @@ func TestItemsAtLimit(t *testing.T) {
 	}
 }
 
+// Respan's Span models reject any state but a string or a bare conversation, so
+// each item goes upstream as the whole state, and context is refused up front.
+func TestItemsRespan(t *testing.T) {
+	var (
+		mu     sync.Mutex
+		states []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ State json.RawMessage }
+		json.NewDecoder(r.Body).Decode(&body)
+		mu.Lock()
+		states = append(states, string(body.State))
+		mu.Unlock()
+		w.Write([]byte(`{"answers":{"q":{"type":"noul","noul":0.9}}}`))
+	}))
+	defer srv.Close()
+	q := `"questions":{"q":{"type":"noul","instructions":"The assistant apologizes."}}`
+
+	for _, model := range []string{"span-01", "respan/span-01-lite:free"} {
+		states = nil
+		text, isErr := connectEvaluate(t, srv)(`{` + q + `,"model":"` + model + `","items":{"a":"User: hi\nAssistant: sorry"}}`)
+		if isErr || len(states) != 1 || states[0] != `"User: hi\nAssistant: sorry"` {
+			t.Errorf("%s: IsError=%v, upstream states %q: %s", model, isErr, states, text)
+		}
+	}
+
+	states = nil
+	text, isErr := connectEvaluate(t, srv)(`{"state":"ctx",` + q + `,"model":"span-01","items":{"a":"x"}}`)
+	if !isErr || !strings.Contains(text, "takes no context") || len(states) != 0 {
+		t.Errorf("state with items: IsError=%v, %d requests sent: %s", isErr, len(states), text)
+	}
+}
+
 // A configured cap rejects the batch before any request goes out.
 func TestItemsConfiguredLimit(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {

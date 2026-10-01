@@ -32,7 +32,7 @@ Tests all sit in `evaluate_test.go`, table-driven over `httptest`.
 
 `evaluate` takes `state` (evidence to judge, plus background as named fields), `questions` (id → `{type, instructions, criteria?, min_confidence?}`), an optional `model`, optional `items` (id → record), and `include_item_usage`.
 
-`items` has no API counterpart: the tool sends one request per item, at most `itemConcurrency` at a time and `maxItems` per call, with state `{"item": <record>, "context": <state>}` (`context` only when `state` is set). Upstream bodies use `request`, not `evaluateIn`, so `items` never reaches the API. Per-item failures go to `errors` (always present) without cancelling siblings; only a total failure is a tool error. `meta` carries the model, summed usage, item count and wall-clock latency once; `shape` strips each item's `model`/`usage` unless `include_item_usage` is set.
+`items` has no API counterpart: the tool sends one request per item, at most `itemConcurrency` at a time and `maxItems` per call, with state `{"item": <record>, "context": <state>}` (`context` only when `state` is set). Respan's Span models (`respan` in `tools.go`, matched on the model name's last segment) reject any other state than a string or a bare `{input, output}` conversation, so they get the record as the whole state, and `state` with `items` is refused before any request. Upstream bodies use `request`, not `evaluateIn`, so `items` never reaches the API. Per-item failures go to `errors` (always present) without cancelling siblings; only a total failure is a tool error. `meta` carries the model, summed usage, item count and wall-clock latency once; `shape` strips each item's `model`/`usage` unless `include_item_usage` is set.
 
 | Type | `criteria` |
 |---|---|
