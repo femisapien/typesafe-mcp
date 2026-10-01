@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -103,6 +102,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(
 		mcpCmd,
 		setupCmd,
+		newProfileCmd(),
 		&cobra.Command{Use: "update", Short: "Update evaluate to the latest release", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 			return runUpdate(cmd.Context())
 		}},
@@ -113,8 +113,9 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-// route picks the evaluation endpoint from the environment: the TypeSafe API
-// when TYPESAFE_API_KEY is set, otherwise OpenRouter's Decisions router.
+// route picks the evaluation endpoint: the profile named by TYPESAFE_PROFILE or
+// marked active, else the TypeSafe API when TYPESAFE_API_KEY is set, otherwise
+// OpenRouter's Decisions router.
 // TypeSafe wins when both are set, so an OPENROUTER_API_KEY left in the shell
 // by another tool cannot silently reroute and re-bill an existing setup.
 // TYPESAFE_BASE_URL is validated here rather than in setup because route is the
@@ -131,20 +132,28 @@ func route() (*Client, error) {
 		}
 		limit = n
 	}
+	// A selected profile defines the whole route, ahead of any key a client
+	// config baked in, so `evaluate profile use` switches every client.
+	pr, name, err := selectedProfile()
+	if err != nil {
+		return nil, err
+	}
+	if pr != nil {
+		u, err := systemOneURL(pr.BaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("profile %q base_url %w", name, err)
+		}
+		return &Client{URL: u, APIKey: pr.APIKey, Model: cmp.Or(pr.Model, "jev-latest"), MaxItems: limit}, nil
+	}
 	switch {
 	case os.Getenv("TYPESAFE_API_KEY") != "":
 		base := cmp.Or(os.Getenv("TYPESAFE_BASE_URL"), "https://api.typesafe.ai")
-		u, err := url.Parse(base)
+		u, err := systemOneURL(base)
 		if err != nil {
-			return nil, fmt.Errorf("TYPESAFE_BASE_URL: %w", err)
-		}
-		// Parse accepts a bare host as a relative URL, so the scheme and host
-		// carry the check.
-		if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return nil, fmt.Errorf("TYPESAFE_BASE_URL must be an absolute http(s) URL, got %q", base)
+			return nil, fmt.Errorf("TYPESAFE_BASE_URL %w", err)
 		}
 		return &Client{
-			URL:      u.JoinPath("v1", "systemone").String(),
+			URL:      u,
 			APIKey:   os.Getenv("TYPESAFE_API_KEY"),
 			Model:    cmp.Or(os.Getenv("TYPESAFE_MODEL"), "jev-latest"),
 			MaxItems: limit,

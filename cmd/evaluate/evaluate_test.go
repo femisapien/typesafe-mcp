@@ -104,7 +104,16 @@ func TestEvaluatePostsToURL(t *testing.T) {
 	}
 }
 
+// isolateProfiles points the profiles file at an empty temp dir on macOS and Linux.
+func isolateProfiles(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("TYPESAFE_PROFILE", "")
+}
+
 func TestRoute(t *testing.T) {
+	isolateProfiles(t)
 	for _, tc := range []struct{ typesafe, openrouter, base, url, model, key string }{
 		{"t", "", "", "https://api.typesafe.ai/v1/systemone", "jev-latest", "t"},
 		{"", "o", "", "https://openrouter.ai/api/alpha/decisions", "~typesafe/jev-latest", "o"},
@@ -182,6 +191,88 @@ func TestRoute(t *testing.T) {
 	t.Setenv("OPENROUTER_API_KEY", "")
 	if _, err := route(); err == nil {
 		t.Fatal("no keys: want error")
+	}
+}
+
+func TestProfiles(t *testing.T) {
+	isolateProfiles(t)
+	t.Setenv("TYPESAFE_API_KEY", "env")
+	t.Setenv("TYPESAFE_BASE_URL", "")
+	t.Setenv("TYPESAFE_MODEL", "")
+	t.Setenv("OPENROUTER_API_KEY", "")
+	t.Setenv("TYPESAFE_MAX_ITEMS", "")
+	run := func(args ...string) (string, error) {
+		cmd := newRootCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetArgs(append([]string{"profile"}, args...))
+		err := cmd.Execute()
+		return out.String(), err
+	}
+	check := func(url, model, key string) {
+		t.Helper()
+		c, err := route()
+		if err != nil || c.URL != url || c.Model != model || c.APIKey != key {
+			t.Fatalf("route: got %+v, %v; want %s %s %s", c, err, url, model, key)
+		}
+	}
+
+	if _, err := run("add", "bad", "--base-url", "liquid.ai"); err == nil {
+		t.Fatal("relative base-url: want error")
+	}
+	// The first profile becomes active and beats the baked-in env key.
+	if _, err := run("add", "typesafe-ai", "--api-key", "ts"); err != nil {
+		t.Fatal(err)
+	}
+	check("https://api.typesafe.ai/v1/systemone", "jev-latest", "ts")
+	// A later add, with the key from the env, does not steal active.
+	if _, err := run("add", "liquid", "--model", "d1:free", "--base-url", "https://api.liquid.ai/decisions"); err != nil {
+		t.Fatal(err)
+	}
+	check("https://api.typesafe.ai/v1/systemone", "jev-latest", "ts")
+	if _, err := run("use", "liquid"); err != nil {
+		t.Fatal(err)
+	}
+	check("https://api.liquid.ai/decisions/v1/systemone", "d1:free", "env")
+	// TYPESAFE_PROFILE pins a profile over the active one.
+	t.Setenv("TYPESAFE_PROFILE", "typesafe-ai")
+	check("https://api.typesafe.ai/v1/systemone", "jev-latest", "ts")
+	t.Setenv("TYPESAFE_PROFILE", "nope")
+	if _, err := route(); err == nil {
+		t.Fatal("unknown TYPESAFE_PROFILE: want error")
+	}
+	t.Setenv("TYPESAFE_PROFILE", "")
+
+	out, err := run("list")
+	if err != nil || !strings.Contains(out, "* liquid\td1:free") {
+		t.Fatalf("list: %q, %v", out, err)
+	}
+	if _, err := run("use", "nope"); err == nil {
+		t.Fatal("use unknown: want error")
+	}
+	// Removing the active profile falls back to the env vars.
+	if _, err := run("remove", "liquid"); err != nil {
+		t.Fatal(err)
+	}
+	check("https://api.typesafe.ai/v1/systemone", "jev-latest", "env")
+
+	// Without a config dir, env keys still work but a pinned profile cannot.
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	check("https://api.typesafe.ai/v1/systemone", "jev-latest", "env")
+	t.Setenv("TYPESAFE_PROFILE", "typesafe-ai")
+	if _, err := route(); err == nil {
+		t.Fatal("pinned profile without config dir: want error")
+	}
+	t.Setenv("TYPESAFE_PROFILE", "")
+	isolateProfiles(t)
+	if _, err := run("add", "typesafe-ai"); err != nil {
+		t.Fatal(err)
+	}
+
+	path, _ := profilesPath()
+	if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("profiles file mode: %v, %v", fi, err)
 	}
 }
 
