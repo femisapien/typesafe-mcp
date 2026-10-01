@@ -30,6 +30,7 @@ To upgrade, run `evaluate update`. It replaces the binary in place with the late
 |---|---|
 | `evaluate setup mcp` | Registers the server with Claude Code, Claude Desktop, Codex and Hermes |
 | `evaluate setup pi` | Installs the `evaluate` extension for pi |
+| `evaluate profile add\|use\|list\|remove` | Manages [model profiles](#profiles) |
 | `evaluate mcp` | Runs the MCP server over stdio (clients start this for you) |
 | `evaluate update` | Updates to the latest release |
 | `evaluate version` | Prints the version |
@@ -45,7 +46,7 @@ To upgrade, run `evaluate update`. It replaces the binary in place with the late
 
 Get a TypeSafe key at https://console.typesafe.ai/. The model page on OpenRouter is https://openrouter.ai/~typesafe/jev-latest.
 
-If both keys are set, `TYPESAFE_API_KEY` wins. A stray OpenRouter key therefore cannot move an existing setup onto a different bill. If you pass `model` explicitly in a tool call, `evaluate` sends it unchanged on either route.
+A [profile](#profiles), when one is selected, takes precedence over both. If both keys are set, `TYPESAFE_API_KEY` wins. A stray OpenRouter key therefore cannot move an existing setup onto a different bill. If you pass `model` explicitly in a tool call, `evaluate` sends it unchanged on either route.
 
 OpenRouter's Decisions endpoint is still on its `/api/alpha/` path and may move.
 
@@ -84,6 +85,26 @@ TYPESAFE_API_KEY=your-liquid-key TYPESAFE_BASE_URL=https://api.liquid.ai/decisio
 
 - `TYPESAFE_API_KEY` just selects this route; use your Liquid AI API key as its value, whatever Liquid AI itself calls that key.
 - `TYPESAFE_MODEL` replaces the default `jev-latest`; without it, every call must pass `model: "d1:free"`.
+
+### Profiles
+
+A profile saves a model, a host and a key under a name, so you can switch between System One models without editing client configs:
+
+```sh
+evaluate profile add typesafe-ai --model jev-latest --api-key your-key
+evaluate profile add liquid --model d1:free --base-url https://api.liquid.ai/decisions --api-key your-liquid-key
+evaluate profile add clm --model clm-latest --base-url http://127.0.0.1:8700 --api-key local
+evaluate profile use liquid
+evaluate profile list
+```
+
+- `--model` defaults to `jev-latest` and `--base-url` to `https://api.typesafe.ai`; the base URL follows the same rules as [`TYPESAFE_BASE_URL`](#custom-typesafe-host). Without `--api-key`, `add` takes the key from `TYPESAFE_API_KEY`.
+- The first profile you add becomes active. Running `add` with an existing name replaces that profile.
+- Profiles live in `profiles.json` in the `evaluate` folder of your config directory (`~/Library/Application Support` on macOS, `~/.config` on Linux), readable only by you.
+- The server reads the active profile when it starts, so after `profile use`, start a new Claude Code or Codex session, or restart Claude Desktop. You don't need to run setup again.
+- Set `TYPESAFE_PROFILE=name` to pin one client to a profile regardless of which one is active. `evaluate setup mcp` copies it into client configs like any other `TYPESAFE_*` variable.
+- A selected profile replaces `TYPESAFE_API_KEY`, `TYPESAFE_BASE_URL` and `TYPESAFE_MODEL`, including values setup already wrote into your client configs. `TYPESAFE_MAX_ITEMS` still applies. With no profile active (for example, after you `remove` the active one), the environment variables apply as before.
+- Profiles cover hosts that serve `POST /v1/systemone`. For OpenRouter, use `OPENROUTER_API_KEY`.
 
 ### Capping items per call
 
@@ -134,7 +155,7 @@ To use any other MCP client, point it at:
 /absolute/path/to/evaluate mcp
 ```
 
-Put `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` in the server's `env`. Add `TYPESAFE_BASE_URL` if you use a custom host, `TYPESAFE_MODEL` if that host serves a model other than `jev-latest`, and `TYPESAFE_MAX_ITEMS` to [cap items per call](#capping-items-per-call). For example:
+Put `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` in the server's `env`, or leave `env` empty and use a [profile](#profiles). Add `TYPESAFE_BASE_URL` if you use a custom host, `TYPESAFE_MODEL` if that host serves a model other than `jev-latest`, and `TYPESAFE_MAX_ITEMS` to [cap items per call](#capping-items-per-call). For example:
 
 ```json
 {
