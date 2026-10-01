@@ -130,6 +130,7 @@ func TestRoute(t *testing.T) {
 		// OpenRouter's Decisions URL is kept as given; its bare host gets the path.
 		{"t", "", "https://openrouter.ai/api/alpha/decisions", "https://openrouter.ai/api/alpha/decisions", "jev-latest", "t"},
 		{"t", "", "https://openrouter.ai/", "https://openrouter.ai/api/alpha/decisions", "jev-latest", "t"},
+		{"t", "", "https://OpenRouter.ai:443/api/alpha/decisions", "https://OpenRouter.ai:443/api/alpha/decisions", "jev-latest", "t"},
 		// ...and it leaves the OpenRouter route alone.
 		{"", "o", "https://jev.internal", "https://openrouter.ai/api/alpha/decisions", "~typesafe/jev-latest", "o"},
 	} {

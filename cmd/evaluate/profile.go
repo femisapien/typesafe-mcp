@@ -119,7 +119,7 @@ func systemOneURL(base string) (string, error) {
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return "", fmt.Errorf("must be an absolute http(s) URL, got %q", base)
 	}
-	if u.Host == "openrouter.ai" {
+	if strings.EqualFold(u.Hostname(), "openrouter.ai") {
 		if strings.Trim(u.Path, "/") == "" {
 			return openRouterURL, nil
 		}
