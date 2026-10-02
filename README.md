@@ -82,6 +82,21 @@ And gets back:
 - **Setup in one command.** `evaluate setup mcp` configures every supported client it finds. Run it again to update.
 - **No dependencies.** One static binary with no Node or Python runtime. `evaluate update` upgrades it in place.
 
+## Supported models
+
+Any model behind the System One API works. These have setup instructions:
+
+| Model | From | How to connect | Notes |
+|---|---|---|---|
+| Jev | [TypeSafe](https://typesafe.ai) | `TYPESAFE_API_KEY`, or `OPENROUTER_API_KEY` for [OpenRouter](https://openrouter.ai/~typesafe/jev-latest) | The default model |
+| d1 | [Liquid AI](https://liquid.ai) | Liquid AI's hosted endpoint ([running d1](docs/configuration.md#d1-liquid-ai)) | |
+| Kev 4B | Jared Palmer | OpenRouter [profile](docs/configuration.md#profiles) | |
+| Span-01 | [Respan](https://www.respan.ai) | OpenRouter [profile](docs/configuration.md#span-01-respan) | `noul` questions only; state must be text or a conversation |
+| CLM | [Contrastive-LM](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B) | Self-hosted ([running CLM](docs/configuration.md#running-clm-locally)) | |
+| Laya | Open model | Self-hosted ([custom hosts](docs/configuration.md#custom-typesafe-host)) | |
+
+Save each one as a [profile](docs/configuration.md#profiles) and switch between them with `evaluate profile use <name>`.
+
 ## Documentation
 
 - [Configuration](docs/configuration.md): install options, API keys, OpenRouter, custom hosts, pi, and manual client setup.

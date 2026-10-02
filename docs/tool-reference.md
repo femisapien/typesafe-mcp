@@ -79,6 +79,7 @@ Score answers are 0-indexed: N levels score from `0` to `N-1`. So `3.87` over 5 
 `items` has no counterpart in the TypeSafe API. It lets one tool call ask the same questions about many records:
 
 - The tool sends one request per item, with state `{"item": <record>, "context": <state>}`. `context` is included only when `state` is set.
+- Respan's Span models are the exception: each record is sent as the whole state, and a call that sets both `state` and `items` fails before anything is sent. See [Span-01](configuration.md#span-01-respan).
 - A call accepts at most 500 items, or fewer if `TYPESAFE_MAX_ITEMS` is set (see [configuration](configuration.md#capping-items-per-call)). At most 8 requests run at once. They all come back in one response.
 - The result is `{"results": {id: response}, "errors": {id: message}, "meta": {...}}`. `errors` is always present, empty when every item succeeded.
 - `meta` reports the call once: `model`, `input_tokens` and `output_tokens` summed over the items that succeeded, `item_count` (items sent), and `latency_ms` (wall clock for the whole call). Each item response leaves out its own `model` and `usage`; set `include_item_usage: true` to keep them.

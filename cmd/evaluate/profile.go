@@ -10,12 +10,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
-// profile is a named TypeSafe-shaped endpoint: any host serving
-// POST /v1/systemone, such as TypeSafe, d1 or clm-serve.
+// profile is a named model endpoint: any host serving POST /v1/systemone, such
+// as TypeSafe, d1 or clm-serve, or OpenRouter's Decisions router.
 type profile struct {
 	Model   string `json:"model"`
 	BaseURL string `json:"base_url"`
@@ -107,6 +108,9 @@ func selectedProfile() (*profile, string, error) {
 
 // systemOneURL turns a host-level base into the full endpoint. Parse accepts a
 // bare host as a relative URL, so the scheme and host carry the check.
+// OpenRouter serves the same body at its own path, not /v1/systemone, so a base
+// on its host is kept as given (a bare host gets the Decisions path); only the
+// host can tell it apart, since Liquid's base also ends in /decisions.
 func systemOneURL(base string) (string, error) {
 	u, err := url.Parse(base)
 	if err != nil {
@@ -114,6 +118,12 @@ func systemOneURL(base string) (string, error) {
 	}
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return "", fmt.Errorf("must be an absolute http(s) URL, got %q", base)
+	}
+	if strings.EqualFold(u.Hostname(), "openrouter.ai") {
+		if strings.Trim(u.Path, "/") == "" {
+			return openRouterURL, nil
+		}
+		return u.String(), nil
 	}
 	return u.JoinPath("v1", "systemone").String(), nil
 }
@@ -149,7 +159,7 @@ func newProfileCmd() *cobra.Command {
 		},
 	}
 	add.Flags().StringVar(&pr.Model, "model", "jev-latest", "default model for this profile")
-	add.Flags().StringVar(&pr.BaseURL, "base-url", "https://api.typesafe.ai", "host serving /v1/systemone")
+	add.Flags().StringVar(&pr.BaseURL, "base-url", "https://api.typesafe.ai", "host serving /v1/systemone, or OpenRouter's Decisions URL")
 	add.Flags().StringVar(&pr.APIKey, "api-key", "", "API key (default $TYPESAFE_API_KEY)")
 
 	cmd.AddCommand(

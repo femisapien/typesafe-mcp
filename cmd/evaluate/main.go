@@ -113,6 +113,9 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
+// openRouterURL is OpenRouter's Decisions router, still on its alpha path.
+const openRouterURL = "https://openrouter.ai/api/alpha/decisions"
+
 // route picks the evaluation endpoint: the profile named by TYPESAFE_PROFILE or
 // marked active, else the TypeSafe API when TYPESAFE_API_KEY is set, otherwise
 // OpenRouter's Decisions router.
@@ -160,7 +163,7 @@ func route() (*Client, error) {
 		}, nil
 	case os.Getenv("OPENROUTER_API_KEY") != "":
 		return &Client{
-			URL:      "https://openrouter.ai/api/alpha/decisions",
+			URL:      openRouterURL,
 			APIKey:   os.Getenv("OPENROUTER_API_KEY"),
 			Model:    "~typesafe/jev-latest",
 			MaxItems: limit,

@@ -125,6 +125,12 @@ func TestRoute(t *testing.T) {
 		{"t", "", "https://jev.internal//", "https://jev.internal/v1/systemone", "jev-latest", "t"},
 		// A local gateway over plain http is the point of the variable.
 		{"t", "", "http://localhost:8080", "http://localhost:8080/v1/systemone", "jev-latest", "t"},
+		// A base ending in /decisions off OpenRouter still gets /v1/systemone.
+		{"t", "", "https://api.liquid.ai/decisions", "https://api.liquid.ai/decisions/v1/systemone", "jev-latest", "t"},
+		// OpenRouter's Decisions URL is kept as given; its bare host gets the path.
+		{"t", "", "https://openrouter.ai/api/alpha/decisions", "https://openrouter.ai/api/alpha/decisions", "jev-latest", "t"},
+		{"t", "", "https://openrouter.ai/", "https://openrouter.ai/api/alpha/decisions", "jev-latest", "t"},
+		{"t", "", "https://OpenRouter.ai:443/api/alpha/decisions", "https://OpenRouter.ai:443/api/alpha/decisions", "jev-latest", "t"},
 		// ...and it leaves the OpenRouter route alone.
 		{"", "o", "https://jev.internal", "https://openrouter.ai/api/alpha/decisions", "~typesafe/jev-latest", "o"},
 	} {
@@ -241,6 +247,14 @@ func TestProfiles(t *testing.T) {
 	if _, err := route(); err == nil {
 		t.Fatal("unknown TYPESAFE_PROFILE: want error")
 	}
+	t.Setenv("TYPESAFE_PROFILE", "")
+
+	// OpenRouter hosts several models, one profile each, at its own path.
+	if _, err := run("add", "kev-4b", "--model", "kev-4b", "--base-url", "https://openrouter.ai/api/alpha/decisions", "--api-key", "or"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TYPESAFE_PROFILE", "kev-4b")
+	check("https://openrouter.ai/api/alpha/decisions", "kev-4b", "or")
 	t.Setenv("TYPESAFE_PROFILE", "")
 
 	out, err := run("list")
@@ -937,6 +951,39 @@ func TestItemsAtLimit(t *testing.T) {
 	var out struct{ Results map[string]json.RawMessage }
 	if isErr || json.Unmarshal([]byte(text), &out) != nil || len(out.Results) != maxItems {
 		t.Fatalf("IsError=%v, %d results, want %d: %.200s", isErr, len(out.Results), maxItems, text)
+	}
+}
+
+// Respan's Span models reject any state but a string or a bare conversation, so
+// each item goes upstream as the whole state, and context is refused up front.
+func TestItemsRespan(t *testing.T) {
+	var (
+		mu     sync.Mutex
+		states []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ State json.RawMessage }
+		json.NewDecoder(r.Body).Decode(&body)
+		mu.Lock()
+		states = append(states, string(body.State))
+		mu.Unlock()
+		w.Write([]byte(`{"answers":{"q":{"type":"noul","noul":0.9}}}`))
+	}))
+	defer srv.Close()
+	q := `"questions":{"q":{"type":"noul","instructions":"The assistant apologizes."}}`
+
+	for _, model := range []string{"span-01", "respan/span-01-lite:free"} {
+		states = nil
+		text, isErr := connectEvaluate(t, srv)(`{` + q + `,"model":"` + model + `","items":{"a":"User: hi\nAssistant: sorry"}}`)
+		if isErr || len(states) != 1 || states[0] != `"User: hi\nAssistant: sorry"` {
+			t.Errorf("%s: IsError=%v, upstream states %q: %s", model, isErr, states, text)
+		}
+	}
+
+	states = nil
+	text, isErr := connectEvaluate(t, srv)(`{"state":"ctx",` + q + `,"model":"span-01","items":{"a":"x"}}`)
+	if !isErr || !strings.Contains(text, "takes no context") || len(states) != 0 {
+		t.Errorf("state with items: IsError=%v, %d requests sent: %s", isErr, len(states), text)
 	}
 }
 
