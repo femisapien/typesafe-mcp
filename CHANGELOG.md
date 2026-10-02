@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.10](https://github.com/itsmostafa/system-one-connector/compare/v0.4.9...v0.4.10) (2026-10-02)
+
+
+### Features
+
+* **client:** let profiles target OpenRouter's Decisions router ([72ac7de](https://github.com/itsmostafa/system-one-connector/commit/72ac7de82cb5a2a2dddf68611227efb877f92d91))
+* support OpenRouter profiles and Respan Span-01 ([cf74f24](https://github.com/itsmostafa/system-one-connector/commit/cf74f2480d6ed2f13d372c4ea764999e977dfc90))
+* **tools:** send items unwrapped to Respan's Span models ([62b8437](https://github.com/itsmostafa/system-one-connector/commit/62b84373ecc4681ebbb57eeaadc0e6eed3992a33))
+
+
+### Bug Fixes
+
+* **client:** match the OpenRouter host case-insensitively, any port ([3126d8f](https://github.com/itsmostafa/system-one-connector/commit/3126d8f91d93f9687441575c7a98a250ac4b6b45))
+
 ## [0.4.9](https://github.com/itsmostafa/system-one-connector/compare/v0.4.8...v0.4.9) (2026-10-01)
 
 
