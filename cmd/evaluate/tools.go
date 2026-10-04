@@ -49,7 +49,7 @@ type question struct {
 	Instructions any    `json:"instructions" jsonschema:"the judgment to make, with its full meaning; a string, or an object/array for definitions, contrasts, and examples; name the condition to test, not the conclusion you expect"`
 	Criteria     any    `json:"criteria,omitempty" jsonschema:"noul: optional {\"true\": ..., \"false\": ...} descriptions; choice (required): map of option to description or null; score (required): ordered array of at least 2 level descriptions, e.g. [\"poor\", \"fair\", \"good\"] — an array, not the index-keyed object the response legend comes back as"`
 
-	MinConfidence *float64 `json:"min_confidence,omitempty" jsonschema:"noul and choice only: abstain threshold from 0 to 1, applied by this server and not sent to the model; when the answer's confidence (choice: the API's confidence; noul: |2p−1|, the same formula with two outcomes) is below it, the answer gains \"uncertain\": true and a choice becomes \"__uncertain__\"; probabilities are kept"`
+	MinConfidence *float64 `json:"min_confidence,omitempty" jsonschema:"abstain threshold from 0 to 1, applied by this server and not sent to the model; when the answer's confidence (choice and score: the API's confidence; noul: |2p−1|, the same formula with two outcomes) is below it, the answer gains \"uncertain\": true and a choice becomes \"__uncertain__\"; probabilities are kept"`
 }
 
 // abstain is the choice a min_confidence question returns below its threshold.
@@ -241,7 +241,7 @@ func marshal(v any) ([]byte, error) {
 }
 
 // lowConfidence reports whether an answer's confidence is below min: a choice's
-// as the API computed it, a noul's as |2p−1|, which is the same statistic for
+// or score's as the API computed it, a noul's as |2p−1|, which is the same statistic for
 // two outcomes. An answer carrying neither is left alone.
 func lowConfidence(a map[string]json.RawMessage, min float64) bool {
 	var c float64
@@ -386,8 +386,6 @@ func validate(in evaluateIn) error {
 	for id, q := range in.Questions {
 		if m := q.MinConfidence; m != nil {
 			switch {
-			case q.Type != "noul" && q.Type != "choice":
-				return fmt.Errorf("questions[%q].min_confidence: only noul and choice questions take min_confidence, got %s", id, q.Type)
 			case *m < 0 || *m > 1:
 				return fmt.Errorf("questions[%q].min_confidence: must be between 0 and 1, got %v", id, *m)
 			}
