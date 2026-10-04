@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.11](https://github.com/itsmostafa/system-one-connector/compare/v0.4.10...v0.4.11) (2026-10-04)
+
+
+### Features
+
+* **tools:** allow min_confidence on score questions ([ea8ca29](https://github.com/itsmostafa/system-one-connector/commit/ea8ca29d0e1a1d40c82cebb260ddb7b756372b1c))
+* **tools:** enforce criteria limits and allow min_confidence on score ([7bfd63c](https://github.com/itsmostafa/system-one-connector/commit/7bfd63c54b3a02eb111ccb1f1be22744383affbb))
+
+
+### Bug Fixes
+
+* **tools:** describe the published score confidence formula ([683d5af](https://github.com/itsmostafa/system-one-connector/commit/683d5af3010b94a4ba4d55bd0715015905feb664))
+* **tools:** describe the published score confidence formula ([16cd332](https://github.com/itsmostafa/system-one-connector/commit/16cd332b4803ce1d6697b5524fad0fb90c1903e4)), closes [#46](https://github.com/itsmostafa/system-one-connector/issues/46)
+* **tools:** reject score criteria over 10 levels and choice over 255 ([2dabe8c](https://github.com/itsmostafa/system-one-connector/commit/2dabe8c6185feb8901e0adbd560b4ec93f43cbc4))
+
 ## [0.4.10](https://github.com/itsmostafa/system-one-connector/compare/v0.4.9...v0.4.10) (2026-10-02)
 
 
