@@ -37,7 +37,7 @@ Question IDs are not sent to the model, so `instructions` must state the full qu
 | `choice` | One option from a set, with a probability for each | Required: map of option to description (or `null`) |
 | `score` | Probability-weighted position on ordered levels | Required: array of level descriptions, lowest first |
 
-A `choice` or `score` question can have at most 255 options. Give a `score` at least 2 levels: one level is a valid request but can only ever score `0`. This is guidance, not a rule; `evaluate` does not reject a one-level score, because the API accepts it.
+A `choice` can have at most 255 options and a `score` at most 10 levels; `evaluate` rejects more before sending a request. Give a `score` at least 2 levels: one level is a valid request but can only ever score `0`. This is guidance, not a rule; `evaluate` does not reject a one-level score, because the API accepts it.
 
 `evaluate` checks the shape of criteria locally (an object for `noul` and `choice`, an array for `score`) and rejects malformed ones before sending a request. The error names the field path you sent. It also rejects two inputs that the API mishandles:
 

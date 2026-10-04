@@ -928,6 +928,7 @@ func TestMinConfidence(t *testing.T) {
 
 	for _, tc := range []struct{ q, want string }{
 		{`{"type":"score","instructions":"i","criteria":["x","y"],"min_confidence":0.5}`, "only noul and choice"},
+		{`{"type":"score","instructions":"i","criteria":["0","1","2","3","4","5","6","7","8","9","10"]}`, "at most 10 levels"},
 		{choice(`,"min_confidence":1.5`), "between 0 and 1"},
 		{`{"type":"choice","instructions":"i","criteria":{"__uncertain__":null},"min_confidence":0.5}`, "reserved"},
 	} {
