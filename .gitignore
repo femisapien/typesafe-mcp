@@ -3,3 +3,5 @@
 .env
 .task/
 .claude/
+eval/data/
+eval/results/
