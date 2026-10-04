@@ -202,6 +202,8 @@ func run(args []string) error {
 	if *protocol == "choice" {
 		questions["tax_category"] = map[string]any{"type": "choice", "instructions": question, "criteria": json.RawMessage(criteriaJSON)}
 	} else {
+		// No dataset row is labeled none_of_these, so noul asks only the real
+		// categories; a "none of the others" noul would be a different question.
 		for _, l := range labels {
 			if l == "none_of_these" {
 				continue
@@ -220,8 +222,13 @@ func run(args []string) error {
 	var metas []json.RawMessage
 	errs := map[string]string{}
 
-	for start := 0; start < len(rows); start += 500 {
-		batch := rows[start:min(start+500, len(rows))]
+	// The spawned server inherits TYPESAFE_MAX_ITEMS, so batch under it.
+	size := 500
+	if n, err := strconv.Atoi(os.Getenv("TYPESAFE_MAX_ITEMS")); err == nil && n > 0 {
+		size = min(n, size)
+	}
+	for start := 0; start < len(rows); start += size {
+		batch := rows[start:min(start+size, len(rows))]
 		items := map[string]any{}
 		for _, r := range batch {
 			id := strconv.Itoa(r.Row)
