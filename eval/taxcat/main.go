@@ -273,7 +273,7 @@ func run(args []string) error {
 		}
 		fmt.Fprintf(os.Stderr, "%s: rows %d-%d done, %d errors so far\n", *name, batch[0].Row, batch[len(batch)-1].Row, len(errs))
 	}
-	meta, _ := json.MarshalIndent(map[string]any{"profile": *profile, "protocol": *protocol, "with_amount": !*noAmount, "calls": metas, "errors": errs}, "", "  ")
+	meta, _ := json.MarshalIndent(map[string]any{"profile": *profile, "protocol": *protocol, "with_amount": !*noAmount, "limit": *limit, "calls": metas, "errors": errs}, "", "  ")
 	return os.WriteFile(filepath.Join(*outDir, *name+".meta.json"), append(meta, '\n'), 0o644)
 }
 

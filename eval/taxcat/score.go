@@ -55,6 +55,7 @@ type runMeta struct {
 	Profile    string `json:"profile"`
 	Protocol   string `json:"protocol"`
 	WithAmount bool   `json:"with_amount"`
+	Limit      int    `json:"limit"`
 	Calls      []struct {
 		Model        string `json:"model"`
 		InputTokens  int    `json:"input_tokens"`
@@ -69,14 +70,10 @@ func score(args []string) error {
 	fs := flag.NewFlagSet("score", flag.ExitOnError)
 	data := fs.String("data", "data", "dataset directory")
 	dir := fs.String("results", "results", "results directory")
-	limit := fs.Int("limit", 0, "score only the first N rows, matching a run's -limit")
 	fs.Parse(args)
 	rows, err := readJSONL[payee](filepath.Join(*data, "payees.jsonl"))
 	if err != nil {
 		return err
-	}
-	if *limit > 0 && *limit < len(rows) {
-		rows = rows[:*limit]
 	}
 	files, _ := filepath.Glob(filepath.Join(*dir, "*.jsonl"))
 	var order []string
@@ -87,10 +84,17 @@ func score(args []string) error {
 			return err
 		}
 		name := strings.TrimSuffix(filepath.Base(f), ".jsonl")
-		r := scoreRun(name, rows, ans)
+		var meta runMeta
 		if b, err := os.ReadFile(strings.TrimSuffix(f, ".jsonl") + ".meta.json"); err == nil {
-			json.Unmarshal(b, &r.Meta)
+			json.Unmarshal(b, &meta)
 		}
+		// Score a -limit run on the rows it was given, not the whole dataset.
+		scored := rows
+		if meta.Limit > 0 && meta.Limit < len(rows) {
+			scored = rows[:meta.Limit]
+		}
+		r := scoreRun(name, scored, ans)
+		r.Meta = meta
 		r.Errors = float64(len(r.Meta.Errors))
 		base := passSuffix.ReplaceAllString(name, "")
 		if groups[base] == nil {
