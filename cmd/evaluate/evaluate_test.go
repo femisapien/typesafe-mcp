@@ -882,7 +882,7 @@ func TestItemsMeta(t *testing.T) {
 }
 
 // min_confidence is applied here, never sent upstream: below it a choice
-// becomes the abstain sentinel and a noul is flagged, with probabilities kept.
+// becomes the abstain sentinel and a noul or score is flagged, with probabilities kept.
 func TestMinConfidence(t *testing.T) {
 	var body string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -892,6 +892,7 @@ func TestMinConfidence(t *testing.T) {
 			`"lo":{"type":"choice","choice":"a","confidence":0.28,"probabilities":{"a":0.46,"b":0.54}},` +
 			`"hi":{"type":"choice","choice":"a","confidence":0.94,"probabilities":{"a":0.97,"b":0.03}},` +
 			`"n":{"type":"noul","noul":0.6},` +
+			`"s":{"type":"score","score":1.2,"confidence":0.25,"probabilities":{"0":0,"1":0.5,"2":0.5}},` +
 			`"plain":{"type":"choice","choice":"a","confidence":0.1,"probabilities":{"a":0.55,"b":0.45}}}}`))
 	}))
 	defer srv.Close()
@@ -901,7 +902,8 @@ func TestMinConfidence(t *testing.T) {
 	}
 	text, isErr := call(`{"state":"s","questions":{` +
 		`"lo":` + choice(`,"min_confidence":0.5`) + `,"hi":` + choice(`,"min_confidence":0.5`) +
-		`,"n":{"type":"noul","instructions":"i","min_confidence":0.3},"plain":` + choice("") + `}}`)
+		`,"n":{"type":"noul","instructions":"i","min_confidence":0.3}` +
+		`,"s":{"type":"score","instructions":"i","criteria":["x","y","z"],"min_confidence":0.5},"plain":` + choice("") + `}}`)
 	if isErr {
 		t.Fatalf("tool error: %s", text)
 	}
@@ -920,6 +922,9 @@ func TestMinConfidence(t *testing.T) {
 	if a["n"]["uncertain"] != true || a["n"]["noul"] != 0.6 {
 		t.Errorf("n = %v, want flagged with noul kept", a["n"])
 	}
+	if a["s"]["uncertain"] != true || a["s"]["score"] != 1.2 {
+		t.Errorf("s = %v, want flagged with score kept", a["s"])
+	}
 	for _, id := range []string{"hi", "plain"} {
 		if a[id]["choice"] != "a" || a[id]["uncertain"] != nil {
 			t.Errorf("%s = %v, want untouched", id, a[id])
@@ -927,7 +932,7 @@ func TestMinConfidence(t *testing.T) {
 	}
 
 	for _, tc := range []struct{ q, want string }{
-		{`{"type":"score","instructions":"i","criteria":["x","y"],"min_confidence":0.5}`, "only noul and choice"},
+		{`{"type":"score","instructions":"i","criteria":["0","1","2","3","4","5","6","7","8","9","10"]}`, "at most 10 levels"},
 		{choice(`,"min_confidence":1.5`), "between 0 and 1"},
 		{`{"type":"choice","instructions":"i","criteria":{"__uncertain__":null},"min_confidence":0.5}`, "reserved"},
 	} {

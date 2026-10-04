@@ -49,7 +49,7 @@ type question struct {
 	Instructions any    `json:"instructions" jsonschema:"the judgment to make, with its full meaning; a string, or an object/array for definitions, contrasts, and examples; name the condition to test, not the conclusion you expect"`
 	Criteria     any    `json:"criteria,omitempty" jsonschema:"noul: optional {\"true\": ..., \"false\": ...} descriptions; choice (required): map of option to description or null; score (required): ordered array of at least 2 level descriptions, e.g. [\"poor\", \"fair\", \"good\"] — an array, not the index-keyed object the response legend comes back as"`
 
-	MinConfidence *float64 `json:"min_confidence,omitempty" jsonschema:"noul and choice only: abstain threshold from 0 to 1, applied by this server and not sent to the model; when the answer's confidence (choice: the API's confidence; noul: |2p−1|, the same formula with two outcomes) is below it, the answer gains \"uncertain\": true and a choice becomes \"__uncertain__\"; probabilities are kept"`
+	MinConfidence *float64 `json:"min_confidence,omitempty" jsonschema:"abstain threshold from 0 to 1, applied by this server and not sent to the model; when the answer's confidence (choice and score: the API's confidence; noul: |2p−1|, the same formula with two outcomes) is below it, the answer gains \"uncertain\": true and a choice becomes \"__uncertain__\"; probabilities are kept"`
 }
 
 // abstain is the choice a min_confidence question returns below its threshold.
@@ -98,7 +98,7 @@ const toolDescription = "Jev is a fast structured-decision model: unstructured s
 	"noul is TypeSafe's name for a yes/no question (not a typo for bool): it returns the probability that the condition holds. Choice and score answers carry a 0-1 confidence computed from the spread of their probabilities, not the chosen option's probability: for choice it is (N·p_top−1)/(N−1) over N options, which is p_top−p_second with two; for score it is max(0, 1−Σ p_i·|i−m|/MAD) with m the most likely level and MAD the mean |i−(N−1)/2| over the N levels, so probability on a neighboring level costs less than at the far end; noul has none, so read the noul probability itself. " +
 	"Use for classification, routing, scoring, extraction, branching, guardrails/judging, " +
 	"and mapping one question set over many records via items — wherever hand-written logic is too brittle or latency matters. " +
-	"Not for prose, code, or free-form text: the answer space must be enumerable up front (max 255 options). " +
+	"Not for prose, code, or free-form text: the answer space must be enumerable up front (max 255 choice options, 10 score levels). " +
 	"Pass raw evidence as state, not your read of it — a conclusion asserted in state biases the answer toward it, and the confidence is then not independent corroboration. E.g. to ask whether a ticket needs a follow-up, send the thread's messages with their senders and timestamps, not the thread plus a note field saying 'user already replied'."
 
 func registerTools(s *mcp.Server, c *Client) {
@@ -241,7 +241,7 @@ func marshal(v any) ([]byte, error) {
 }
 
 // lowConfidence reports whether an answer's confidence is below min: a choice's
-// as the API computed it, a noul's as |2p−1|, which is the same statistic for
+// or score's as the API computed it, a noul's as |2p−1|, which is the same statistic for
 // two outcomes. An answer carrying neither is left alone.
 func lowConfidence(a map[string]json.RawMessage, min float64) bool {
 	var c float64
@@ -386,8 +386,6 @@ func validate(in evaluateIn) error {
 	for id, q := range in.Questions {
 		if m := q.MinConfidence; m != nil {
 			switch {
-			case q.Type != "noul" && q.Type != "choice":
-				return fmt.Errorf("questions[%q].min_confidence: only noul and choice questions take min_confidence, got %s", id, q.Type)
 			case *m < 0 || *m > 1:
 				return fmt.Errorf("questions[%q].min_confidence: must be between 0 and 1, got %v", id, *m)
 			}
@@ -401,11 +399,17 @@ func validate(in evaluateIn) error {
 		switch q.Type {
 		case "score":
 			if v, ok := q.Criteria.([]any); ok && len(v) > 0 {
+				if len(v) > 10 {
+					return fmt.Errorf("questions[%q].criteria: a score takes at most 10 levels, got %d", id, len(v))
+				}
 				continue
 			}
 			want = "an array of level descriptions, ordered low to high"
 		case "choice":
 			if v, ok := q.Criteria.(map[string]any); ok && len(v) > 0 {
+				if len(v) > 255 {
+					return fmt.Errorf("questions[%q].criteria: a choice takes at most 255 options, got %d", id, len(v))
+				}
 				continue
 			}
 			want = "an object mapping each option to a description or null"

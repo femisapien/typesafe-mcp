@@ -117,7 +117,7 @@ export default function (pi: ExtensionAPI) {
       "noul is TypeSafe's name for a yes/no question (not a typo for bool): it returns the probability that the condition holds. Choice and score answers carry a 0-1 confidence computed from the spread of their probabilities, not the chosen option's probability: for choice it is (N·p_top−1)/(N−1) over N options, which is p_top−p_second with two; for score it is max(0, 1−Σ p_i·|i−m|/MAD) with m the most likely level and MAD the mean |i−(N−1)/2| over the N levels, so probability on a neighboring level costs less than at the far end; noul has none, so read the noul probability itself. " +
       "Use for classification, routing, scoring, extraction, branching, guardrails/judging, " +
       "and mapping one question set over many records via items — wherever hand-written logic is too brittle or latency matters. " +
-      "Not for prose, code, or free-form text: the answer space must be enumerable up front (max 255 options). " +
+      "Not for prose, code, or free-form text: the answer space must be enumerable up front (max 255 choice options, 10 score levels). " +
       "Pass raw evidence as state, not your read of it — a conclusion asserted in state biases the answer toward it, and the confidence is then not independent corroboration. E.g. to ask whether a ticket needs a follow-up, send the thread's messages with their senders and timestamps, not the thread plus a note field saying 'user already replied'.",
     promptSnippet:
       "Classify, route, score, extract, or guard with Jev: typed answers and probabilities to branch on, in 70-500ms, instead of parsing prose.",
@@ -154,7 +154,7 @@ export default function (pi: ExtensionAPI) {
             min_confidence: Type.Optional(
               Type.Number({
                 description:
-                  `noul and choice only: abstain threshold from 0 to 1, applied by this server and not sent to the model; when the answer's confidence (choice: the API's confidence; noul: |2p−1|, the same formula with two outcomes) is below it, the answer gains "uncertain": true and a choice becomes "__uncertain__"; probabilities are kept`,
+                  `abstain threshold from 0 to 1, applied by this server and not sent to the model; when the answer's confidence (choice and score: the API's confidence; noul: |2p−1|, the same formula with two outcomes) is below it, the answer gains "uncertain": true and a choice becomes "__uncertain__"; probabilities are kept`,
               }),
             ),
           }),
