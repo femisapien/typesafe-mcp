@@ -51,6 +51,21 @@ tasks:
     cmds:
       - npx @modelcontextprotocol/inspector ./evaluate mcp
 
+  eval:
+    desc: Run the tax-categorization eval for one profile (PROFILE=jev, PROTOCOL=choice|noul, LIMIT=10 for a smoke run)
+    deps: [build]
+    dir: eval
+    cmds:
+      - go run ./taxcat run -profile {{.PROFILE}} -protocol {{.PROTOCOL | default "choice"}} -limit {{.LIMIT | default 0}}
+    requires:
+      vars: [PROFILE]
+
+  eval:score:
+    desc: Score every saved eval run as Markdown
+    dir: eval
+    cmds:
+      - go run ./taxcat score
+
   tidy:
     desc: Tidy go.mod
     cmds:
