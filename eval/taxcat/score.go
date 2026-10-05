@@ -52,18 +52,22 @@ type coverage struct {
 }
 
 type runMeta struct {
-	Profile    string `json:"profile"`
-	Protocol   string `json:"protocol"`
-	WithAmount bool   `json:"with_amount"`
-	Limit      int    `json:"limit"`
-	Calls      []struct {
-		Model        string `json:"model"`
-		InputTokens  int    `json:"input_tokens"`
-		OutputTokens int    `json:"output_tokens"`
-		ItemCount    int    `json:"item_count"`
-		LatencyMS    int64  `json:"latency_ms"`
-	} `json:"calls"`
-	Errors map[string]string `json:"errors"`
+	Profile    string            `json:"profile"`
+	Protocol   string            `json:"protocol"`
+	WithAmount bool              `json:"with_amount"`
+	Limit      int               `json:"limit"`
+	Calls      []callMeta        `json:"calls"`
+	Errors     map[string]string `json:"errors"`
+	Price      *price            `json:"price"`
+}
+
+// callMeta is one evaluate call's model and usage, summed over its items.
+type callMeta struct {
+	Model        string `json:"model"`
+	InputTokens  int    `json:"input_tokens"`
+	OutputTokens int    `json:"output_tokens"`
+	ItemCount    int    `json:"item_count"`
+	LatencyMS    int64  `json:"latency_ms"`
 }
 
 func score(args []string) error {
@@ -365,8 +369,10 @@ func writeMarkdown(w io.Writer, reps []report) {
 
 	fmt.Fprintln(w, "\n## Cost and speed")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "| Run | Input tokens / pass | Output tokens / pass | Wall clock / pass |")
-	fmt.Fprintln(w, "|---|---|---|---|")
+	fmt.Fprintln(w, "Cost is USD per 100 categorizations at the OpenRouter rate saved when the run was made; `—` means the run saved no rate.")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "| Run | Input tokens / pass | Output tokens / pass | Wall clock / pass | Cost / 100 |")
+	fmt.Fprintln(w, "|---|---|---|---|---|")
 	for _, r := range reps {
 		var in, out int
 		var ms int64
@@ -374,7 +380,11 @@ func writeMarkdown(w io.Writer, reps []report) {
 			in, out, ms = in+c.InputTokens, out+c.OutputTokens, ms+c.LatencyMS
 		}
 		p := max(r.Passes, 1)
-		fmt.Fprintf(w, "| `%s` | %d | %d | %.0fs |\n", r.Name, in/p, out/p, float64(ms)/1000/float64(p))
+		cost := "—"
+		if usd, ok := costPer100(r.Meta.Price, r.Meta.Calls); ok {
+			cost = fmt.Sprintf("$%.6f", usd)
+		}
+		fmt.Fprintf(w, "| `%s` | %d | %d | %.0fs | %s |\n", r.Name, in/p, out/p, float64(ms)/1000/float64(p), cost)
 	}
 
 	for _, r := range reps {

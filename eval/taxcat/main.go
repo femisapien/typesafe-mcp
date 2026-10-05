@@ -220,6 +220,7 @@ func run(args []string) error {
 	defer out.Close()
 	enc := json.NewEncoder(out)
 	var metas []json.RawMessage
+	var cost *price
 	errs := map[string]string{}
 
 	// The spawned server inherits TYPESAFE_MAX_ITEMS, so batch under it.
@@ -264,6 +265,15 @@ func run(args []string) error {
 		}
 		maps.Copy(errs, reply.Errors)
 		metas = append(metas, reply.Meta)
+		// Price the run once, from the model the first reply names, and warn
+		// right away so a long run does not finish unpriced by surprise.
+		if start == 0 {
+			var m struct{ Model string }
+			json.Unmarshal(reply.Meta, &m)
+			if cost, err = fetchPrice(m.Model); err != nil {
+				fmt.Fprintf(os.Stderr, "%s: no price saved, cost will show as —: %v\n", *name, err)
+			}
+		}
 		for _, id := range slices.Sorted(maps.Keys(reply.Results)) {
 			row, _ := strconv.Atoi(id)
 			a := answer{Row: row}
@@ -280,7 +290,7 @@ func run(args []string) error {
 		}
 		fmt.Fprintf(os.Stderr, "%s: rows %d-%d done, %d errors so far\n", *name, batch[0].Row, batch[len(batch)-1].Row, len(errs))
 	}
-	meta, _ := json.MarshalIndent(map[string]any{"profile": *profile, "protocol": *protocol, "with_amount": !*noAmount, "limit": *limit, "calls": metas, "errors": errs}, "", "  ")
+	meta, _ := json.MarshalIndent(map[string]any{"profile": *profile, "protocol": *protocol, "with_amount": !*noAmount, "limit": *limit, "calls": metas, "errors": errs, "price": cost}, "", "  ")
 	return os.WriteFile(filepath.Join(*outDir, *name+".meta.json"), append(meta, '\n'), 0o644)
 }
 
