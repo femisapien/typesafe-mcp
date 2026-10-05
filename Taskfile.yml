@@ -52,11 +52,11 @@ tasks:
       - npx @modelcontextprotocol/inspector ./evaluate mcp
 
   eval:
-    desc: Run the tax-categorization eval for one profile (PROFILE=jev, PROTOCOL=choice|noul, LIMIT=10 for a smoke run)
+    desc: Run the tax-categorization eval for one profile (PROFILE=jev, PROTOCOL=choice|noul, LIMIT=10 for a smoke run, NAME=jev.p1 to name a pass)
     deps: [build]
     dir: eval
     cmds:
-      - go run ./taxcat run -profile {{.PROFILE}} -protocol {{.PROTOCOL | default "choice"}} -limit {{.LIMIT | default 0}}
+      - go run ./taxcat run -profile {{.PROFILE}} -protocol {{.PROTOCOL | default "choice"}} -limit {{.LIMIT | default 0}}{{if .NAME}} -name {{.NAME}}{{end}}
     requires:
       vars: [PROFILE]
 
