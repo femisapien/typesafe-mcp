@@ -81,17 +81,20 @@ func matchPrice(models []orModel, model string) (*price, error) {
 	return &price{ID: hit.ID, Prompt: in, Completion: out}, nil
 }
 
-// costPer100 prices a run's calls and scales the total to 100 categorized
-// items. It reports false when the run has no saved price or no items.
-func costPer100(p *price, calls []callMeta) (float64, bool) {
-	if p == nil {
-		return 0, false
-	}
+// costPer100 prices each pass's calls at the rate that pass saved and scales
+// the total to 100 categorized items. Passes with no saved rate are left out;
+// it reports false when no pass has a rate or the priced passes have no items.
+func costPer100(passes []runMeta) (float64, bool) {
 	var usd float64
 	var items int
-	for _, c := range calls {
-		usd += float64(c.InputTokens)*p.Prompt + float64(c.OutputTokens)*p.Completion
-		items += c.ItemCount
+	for _, m := range passes {
+		if m.Price == nil {
+			continue
+		}
+		for _, c := range m.Calls {
+			usd += float64(c.InputTokens)*m.Price.Prompt + float64(c.OutputTokens)*m.Price.Completion
+			items += c.ItemCount
+		}
 	}
 	if items == 0 {
 		return 0, false

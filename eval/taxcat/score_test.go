@@ -89,14 +89,22 @@ func TestCostPer100(t *testing.T) {
 		{InputTokens: 1_000_000, OutputTokens: 10_000, ItemCount: 500},
 	}
 	// 2M × $0.04/M + 20k × $1/M = $0.10 for 1,000 items, so $0.01 per 100.
-	if got, ok := costPer100(p, calls); !ok || math.Abs(got-0.01) > 1e-12 {
+	if got, ok := costPer100([]runMeta{{Price: p, Calls: calls}}); !ok || math.Abs(got-0.01) > 1e-12 {
 		t.Errorf("costPer100 = %v, %v; want 0.01, true", got, ok)
 	}
-	if _, ok := costPer100(nil, calls); ok {
+	if _, ok := costPer100([]runMeta{{Calls: calls}}); ok {
 		t.Error("a run with no saved price got a cost")
 	}
-	if _, ok := costPer100(p, nil); ok {
+	if _, ok := costPer100([]runMeta{{Price: p}}); ok {
 		t.Error("a run with no calls got a cost")
+	}
+	// Each pass is priced at its own rate: pass 2 at double the rate makes
+	// $0.10 + $0.20 for 2,000 items, so $0.015 per 100. A pass with no saved
+	// rate is left out rather than blanking the group.
+	p2 := &price{Prompt: 0.08e-6, Completion: 2e-6}
+	passes := []runMeta{{Calls: calls}, {Price: p, Calls: calls}, {Price: p2, Calls: calls}}
+	if got, ok := costPer100(passes); !ok || math.Abs(got-0.015) > 1e-12 {
+		t.Errorf("costPer100 over passes = %v, %v; want 0.015, true", got, ok)
 	}
 }
 

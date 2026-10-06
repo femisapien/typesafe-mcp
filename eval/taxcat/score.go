@@ -35,6 +35,8 @@ type report struct {
 	Missed                []missed
 	Coverage              []coverage
 	Meta                  runMeta
+	Cost100               float64 // USD per 100 items, each pass at its own saved rate
+	Costed                bool    // false when no pass saved a rate
 }
 
 type confusion struct {
@@ -126,7 +128,9 @@ func average(name string, ps []report) report {
 	a.Meta.Calls = nil
 	conf := map[[2]string]float64{}
 	seen := map[[2]string]int{}
+	metas := make([]runMeta, len(ps))
 	for i, p := range ps {
+		metas[i] = p.Meta
 		a.Errors += p.Errors / n
 		a.Abstained += p.Abstained / n
 		a.Acc += p.Acc / n
@@ -164,6 +168,7 @@ func average(name string, ps []report) report {
 		}
 		a.Meta.Calls = append(a.Meta.Calls, p.Meta.Calls...)
 	}
+	a.Cost100, a.Costed = costPer100(metas)
 	for k, v := range conf {
 		a.Confusions = append(a.Confusions, confusion{k[0], k[1], v})
 	}
@@ -381,8 +386,8 @@ func writeMarkdown(w io.Writer, reps []report) {
 		}
 		p := max(r.Passes, 1)
 		cost := "—"
-		if usd, ok := costPer100(r.Meta.Price, r.Meta.Calls); ok {
-			cost = fmt.Sprintf("$%.6f", usd)
+		if r.Costed {
+			cost = fmt.Sprintf("$%.6f", r.Cost100)
 		}
 		fmt.Fprintf(w, "| `%s` | %d | %d | %.0fs | %s |\n", r.Name, in/p, out/p, float64(ms)/1000/float64(p), cost)
 	}
